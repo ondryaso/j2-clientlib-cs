@@ -29,6 +29,9 @@ namespace SIClient.Net
 
             set
             {
+                if (!value.EndsWith("/"))
+                    value += "/";
+
                 this.addr = value;
                 this.uri = new Uri(value);
             }
@@ -70,39 +73,40 @@ namespace SIClient.Net
         /// <returns>Image URL name</returns>
         public async Task<String> UploadImageAsync(byte[] imageBytes)
         {
-            
+
             using (HttpClient c = new HttpClient())
             {
-                    c.BaseAddress = this.uri;
+                c.BaseAddress = this.uri;
 
-                    var multipart = new MultipartFormDataContent("-------------------------acebdf13572468");
+                //Data passed here are the same as Fiddler uses, because default implementation of the server uses NanoHTTPD library, which is kinda picky about data coming.
+                var multipart = new MultipartFormDataContent("-------------------------acebdf13572468");
 
-                    var bac = new ByteArrayContent(imageBytes);
-                    bac.Headers.ContentType = new MediaTypeHeaderValue("image/png");
-                    bac.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
-                    {
-                        Name="fieldNameHere",
-                        FileName="screenshot.png"
-                    };
+                var bac = new ByteArrayContent(imageBytes);
+                bac.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+                bac.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+                {
+                    Name = "fieldNameHere",
+                    FileName = "screenshot.png"
+                };
 
-                    multipart.Add(bac, "fieldNameHere");
+                multipart.Add(bac, "fieldNameHere");
 
-                    var post = await c.PostAsync("push/" + this.DefaultResponseManagerName, multipart);
-                   
-                    String res = await post.Content.ReadAsStringAsync();
+                var post = await c.PostAsync("push/" + this.DefaultResponseManagerName, multipart);
 
-                    if (post.StatusCode == System.Net.HttpStatusCode.OK)
-                    {
-                        return res;
-                    }
-                    else if (post.StatusCode == System.Net.HttpStatusCode.BadRequest)
-                    {
-                        throw new FormatException("The server has refused this file because it's not an PNG image.");
-                    }
-                    else
-                    {
-                        throw new Exception(res);
-                    }
+                String res = await post.Content.ReadAsStringAsync();
+
+                if (post.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    return res;
+                }
+                else if (post.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                {
+                    throw new FormatException("The server has refused this file because it's not an PNG image.");
+                }
+                else
+                {
+                    throw new Exception(res);
+                }
 
             }
         }
