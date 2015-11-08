@@ -48,14 +48,11 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// Synchronously uploads a PNG image.
-        /// It's recommended to check if input byte array really contains a PNG image.
+        /// See <see cref="INetClient.UploadImage(byte[])" />
         /// </summary>
-        /// <param name="imageBytes">PNG image bytes</param>
         /// <exception cref="BadImageFormatException">Thrown if server decided that passed bytes are not a PNG image.</exception>
         /// <exception cref="PushException">Thrown if unknown exception was thrown when processing the image on the server.</exception>
         /// <exception cref="BadProtocolFormatException">Thrown if the server uses different protocol version.</exception>
-        /// <returns>Image name</returns>
         public String UploadImage(byte[] imageBytes)
         {
             var t = Task.Run(() => this.UploadImageAsync(imageBytes));
@@ -64,14 +61,11 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// Asynchronously uploads a PNG image.
-        /// It's recommended to check if input byte array really contains a PNG image.
+        /// See <see cref="INetClient.UploadImageAsync(byte[])"/>
         /// </summary>
-        /// <param name="imageBytes">PNG image bytes</param>
         /// <exception cref="BadImageFormatException">Thrown if server decided that passed bytes are not a PNG image.</exception>
         /// <exception cref="PushException">Thrown if unknown exception was thrown when processing the image on the server.</exception>
         /// <exception cref="BadProtocolFormatException">Thrown if the server uses different protocol version or request trail.</exception>
-        /// <returns>Image name</returns>
         public async Task<String> UploadImageAsync(byte[] imageBytes)
         {
             using (TcpClient client = new TcpClient())
@@ -135,6 +129,11 @@ namespace SIClient.Net
             }
         }
 
+        /// <summary>
+        /// See <see cref="INetClient.GetImage(string, bool, out bool)"/>
+        /// </summary>
+        /// <exception cref="ImageNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
+        /// <exception cref="BadProtocolFormatException">Thrown if the server uses different protocol version or request trail.</exception>
         public byte[] GetImage(String name, bool preferJpg, out bool isJpg)
         {
             var t = Task.Run(() => this.GetImageAsync(name, preferJpg));
@@ -144,12 +143,10 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// Asynchronously downloads image from the server.
+        /// See <see cref="INetClient.GetImageAsync(string, bool)"/>
         /// </summary>
-        /// <param name="name">Image name</param>
         /// <exception cref="ImageNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
         /// <exception cref="BadProtocolFormatException">Thrown if the server uses different protocol version or request trail.</exception>
-        /// <returns>Tuple with image bytes and boolean saing if the image was returned in JPG format</returns>
         public async Task<Tuple<byte[], bool>> GetImageAsync(String name, bool preferJpg)
         {
             if (name.StartsWith("i"))

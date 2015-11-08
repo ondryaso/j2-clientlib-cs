@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -37,7 +36,7 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// If the server uses other than default ResponseManager, client can be configured to use non-default request addresses using this
+        /// Name of the default response manager on the server
         /// </summary>
         public String DefaultResponseManagerName { get; set; }
 
@@ -51,13 +50,10 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// Synchronously uploads a PNG image. Returns image URL name (that's the one you can add after the base URL). It's recommended for lower server load
-        /// to check if your file is a PNG image on the client side before sending it.
+        /// See <see cref="INetClient.UploadImage(byte[])" />
         /// </summary>
-        /// <param name="imageBytes">Image bytes</param>
-        /// <exception cref="System.Exception">Thrown if the server returns error. The message contains a response from the server.</exception>
-        /// <exception cref="System.FormatException">Thrown if server refuses the file because it's not an PNG image.</exception>
-        /// <returns>Image URL name</returns>
+        /// <exception cref="PushException">Thrown if the server returns error. The message contains a response from the server.</exception>
+        /// <exception cref="BadImageFormatException">Thrown if the server refuses the file because it's not an PNG image.</exception>
         public String UploadImage(byte[] imageBytes)
         {
             var t = Task.Run(() => this.UploadImageAsync(imageBytes));
@@ -66,20 +62,17 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// Asynchronously uploads a PNG image. Returns image URL name (that's the one you can add after the base URL). It's recommended for lower server load
-        /// to check if your file is a PNG image on the client side before sending it.
+        /// See <see cref="INetClient.UploadImageAsync(byte[])"/>
         /// </summary>
-        /// <param name="imageBytes">Image bytes</param>
-        /// <exception cref="System.Exception">Thrown if the server returns error. The message contains a response from the server.</exception>
-        /// <exception cref="System.FormatException">Thrown if server refuses the file because it's not an PNG image.</exception>
-        /// <returns>Image URL name</returns>
+        /// <exception cref="PushException">Thrown if the server returns error. The message contains a response from the server.</exception>
+        /// <exception cref="BadImageFormatException">Thrown if server refuses the file because it's not an PNG image.</exception>
         public async Task<String> UploadImageAsync(byte[] imageBytes)
         {
             using (HttpClient c = new HttpClient())
             {
                 c.BaseAddress = this.uri;
 
-                //Data passed here are the same as Fiddler uses, because default implementation of the server uses NanoHTTPD library, which is kinda picky about data coming.
+                //Data passed here are the same as Fiddler uses, because default implementation of the server uses NanoHTTPD library, which is kinda picky about the data coming.
                 var multipart = new MultipartFormDataContent("-------------------------acebdf13572468");
 
                 var bac = new ByteArrayContent(imageBytes);
@@ -102,15 +95,19 @@ namespace SIClient.Net
                 }
                 else if (post.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 {
-                    throw new FormatException("The server has refused this file because it's not an PNG image.");
+                    throw new BadImageFormatException(res);
                 }
                 else
                 {
-                    throw new Exception(res);
+                    throw new PushException(res);
                 }
             }
         }
 
+        /// <summary>
+        /// See <see cref="INetClient.GetImage(string, bool, out bool)"/>
+        /// </summary>
+        /// <exception cref="ImageNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
         public byte[] GetImage(String name, bool preferJpg, out bool isJpg)
         {
             var t = Task.Run(() => this.GetImageAsync(name, preferJpg));
@@ -120,17 +117,23 @@ namespace SIClient.Net
         }
 
         /// <summary>
-        /// Asynchronously downloads image from the server. Accepts either image URL name and image file name (e.g. i123456.png and 123456.png).
+        /// See <see cref="INetClient.GetImageAsync(string, bool)"/>
         /// </summary>
-        /// <param name="name">Image name</param>
-        /// <exception cref="System.IO.FileNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
-        /// <returns>Byte array containing the PNG image</returns>
+        /// <exception cref="ImageNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
         public async Task<Tuple<byte[], bool>> GetImageAsync(String name, bool preferJpg)
         {
             var i = await this.GetImageAsObjectAsync(name, preferJpg);
             return new Tuple<byte[], bool>(i.Item2, ImageFormat.Png.Equals(i.Item1.RawFormat));
         }
 
+        /// <summary>
+        /// Synchronously downloads an image from the server. Accepts either the image URL name ot the image file name (e.g. i123456.png and 123456.png).
+        /// Returns <see cref="System.Drawing"/> image and boolean determining if the returned image is in JPG format.
+        /// </summary>
+        /// <param name="name">Image name</param>
+        /// <param name="preferJpg">Requests the JPG version of the image if true. Remember that the server doesn't have to send you the image in the format you want.</param>
+        /// <exception cref="ImageNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
+        /// <returns>Tuple containing <see cref="System.Drawing"/> image and boolean determining if the returned image is in JPG format</returns>
         public async Task<Tuple<Image, byte[]>> GetImageAsObjectAsync(String name, bool preferJpg)
         {
             if (!name.StartsWith("i"))
@@ -147,7 +150,7 @@ namespace SIClient.Net
                 }
                 else
                 {
-                    throw new FileNotFoundException(await post.Content.ReadAsStringAsync());
+                    throw new ImageNotFoundException(name, await post.Content.ReadAsStringAsync());
                 }
             }
         }
