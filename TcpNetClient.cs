@@ -70,7 +70,7 @@ namespace SIClient.Net
         {
             using (TcpClient client = new TcpClient())
             {
-                await client.ConnectAsync(IPAddress.Loopback, this.ServerPort);
+                await client.ConnectAsync(this.ServerAddress, this.ServerPort);
 
                 var stream = client.GetStream();
 
