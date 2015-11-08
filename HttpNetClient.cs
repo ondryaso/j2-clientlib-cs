@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SIClient.Net
@@ -12,7 +11,7 @@ namespace SIClient.Net
     /// <summary>
     /// Class used for communication with J2 Server
     /// </summary>
-    public class NetClient
+    public class HttpNetClient : INetClient
     {
         private String addr;
         private Uri uri;
@@ -37,15 +36,18 @@ namespace SIClient.Net
             }
         }
 
-
         /// <summary>
         /// If the server uses other than default ResponseManager, client can be configured to use non-default request addresses using this
         /// </summary>
         public String DefaultResponseManagerName { get; set; }
 
-        public NetClient(String serverAddr)
+        public HttpNetClient(String serverAddr)
         {
             this.ServerAddress = serverAddr;
+        }
+
+        public HttpNetClient()
+        {
         }
 
         /// <summary>
@@ -73,7 +75,6 @@ namespace SIClient.Net
         /// <returns>Image URL name</returns>
         public async Task<String> UploadImageAsync(byte[] imageBytes)
         {
-
             using (HttpClient c = new HttpClient())
             {
                 c.BaseAddress = this.uri;
@@ -107,15 +108,15 @@ namespace SIClient.Net
                 {
                     throw new Exception(res);
                 }
-
             }
         }
 
-        public byte[] GetImage(String name)
+        public byte[] GetImage(String name, bool preferJpg, out bool isJpg)
         {
-            var t = Task.Run(() => this.GetImageAsync(name));
+            var t = Task.Run(() => this.GetImageAsync(name, preferJpg));
             t.Wait();
-            return t.Result;
+            isJpg = t.Result.Item2;
+            return t.Result.Item1;
         }
 
         /// <summary>
@@ -124,7 +125,13 @@ namespace SIClient.Net
         /// <param name="name">Image name</param>
         /// <exception cref="System.IO.FileNotFoundException">Thrown if the requested image doesn't exist on the server.</exception>
         /// <returns>Byte array containing the PNG image</returns>
-        public async Task<byte[]> GetImageAsync(String name)
+        public async Task<Tuple<byte[], bool>> GetImageAsync(String name, bool preferJpg)
+        {
+            var i = await this.GetImageAsObjectAsync(name, preferJpg);
+            return new Tuple<byte[], bool>(i.Item2, ImageFormat.Png.Equals(i.Item1.RawFormat));
+        }
+
+        public async Task<Tuple<Image, byte[]>> GetImageAsObjectAsync(String name, bool preferJpg)
         {
             if (!name.StartsWith("i"))
                 name = "i" + name;
@@ -136,7 +143,7 @@ namespace SIClient.Net
 
                 if (post.StatusCode == System.Net.HttpStatusCode.OK)
                 {
-                    return await post.Content.ReadAsByteArrayAsync();
+                    return new Tuple<Image, byte[]>(Image.FromStream(await post.Content.ReadAsStreamAsync()), await post.Content.ReadAsByteArrayAsync());
                 }
                 else
                 {
